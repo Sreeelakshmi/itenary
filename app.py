@@ -3,7 +3,7 @@ import requests
 import os
 
 # OpenWeather API Key (use environment variable or Streamlit secrets)
-API_KEY = os.getenv("WEATHER_API_KEY")  # Or st.secrets["WEATHER_API_KEY"]
+API_KEY = os.getenv("f8cb952227a9226d7088520604acec5a") 
 
 def get_lat_lon(state_name):
     """Fetch latitude and longitude of a state using OpenWeather Geocoding API."""
