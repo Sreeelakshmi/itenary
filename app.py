@@ -1,67 +1,56 @@
 import streamlit as st
 import requests
-import datetime
-import matplotlib.pyplot as plt
-from io import BytesIO
+import os
 
-# OpenWeatherMap API Key (Replace with your own API key)
-API_KEY = "f8cb952227a9226d7088520604acec5a"
+# OpenWeather API Key (use environment variable or Streamlit secrets)
+API_KEY = os.getenv("WEATHER_API_KEY")  # Or st.secrets["WEATHER_API_KEY"]
 
-# Define Seven Sister Cities with their lat/lon
-cities = {
-    "Guwahati, Assam": (26.1445, 91.7362),
-    "Shillong, Meghalaya": (25.5788, 91.8933),
-    "Cherrapunji, Meghalaya": (25.2841, 91.7211),
-    "Kohima, Nagaland": (25.6747, 94.1100),
-    "Imphal, Manipur": (24.8170, 93.9368),
-    "Aizawl, Mizoram": (23.7367, 92.7146),
-    "Agartala, Tripura": (23.8315, 91.2868),
-    "Itanagar, Arunachal Pradesh": (27.0844, 93.6053)
-}
+def get_lat_lon(state_name):
+    """Fetch latitude and longitude of a state using OpenWeather Geocoding API."""
+    geo_url = f"http://api.openweathermap.org/geo/1.0/direct?q={state_name},IN&limit=1&appid={API_KEY}"
+    response = requests.get(geo_url)
+    
+    if response.status_code == 200 and response.json():
+        data = response.json()[0]
+        return data["lat"], data["lon"]
+    else:
+        st.error("⚠️ Could not retrieve coordinates. Check the state name.")
+        return None, None
 
-# Function to fetch weather data
-def get_weather(city, lat, lon):
-    url = f"http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&units=metric"
-    response = requests.get(url)
-    data = response.json()
+def get_weather(state_name):
+    """Fetch weather data based on state name."""
+    lat, lon = get_lat_lon(state_name)
+    if lat is None or lon is None:
+        return None
+
+    weather_url = f"http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&units=metric"
+    response = requests.get(weather_url)
+    
     if response.status_code == 200:
+        data = response.json()
         return {
-            "temperature": data["main"]["temp"],
-            "weather": data["weather"][0]["description"].title(),
-            "icon": data["weather"][0]["icon"]
+            "Temperature": data["main"]["temp"],
+            "Condition": data["weather"][0]["description"],
+            "Humidity": data["main"]["humidity"],
+            "Wind Speed": data["wind"]["speed"]
         }
-    return None
+    else:
+        st.error("❌ Failed to retrieve weather data.")
+        return None
 
 # Streamlit UI
-st.title("🌏 Seven Sisters Travel Itinerary Planner")
-st.sidebar.header("Trip Customization")
-travel_date = st.sidebar.date_input("Select your travel date", datetime.date.today())
+st.title("Seven Sisters Itinerary Planner 🌍")
 
-st.write(f"## 🗓️ Travel Date: {travel_date}")
-st.write("This itinerary adapts to real-time weather conditions in the Seven Sister States of India.")
+state_name = st.selectbox("Select a State", ["Assam", "Meghalaya", "Tripura", "Mizoram", "Manipur", "Nagaland", "Arunachal Pradesh"])
 
-for city, (lat, lon) in cities.items():
-    weather = get_weather(city, lat, lon)
+if state_name:
+    weather = get_weather(state_name)
+    
     if weather:
-        st.subheader(f"📍 {city}")
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            icon_url = f"http://openweathermap.org/img/wn/{weather['icon']}@2x.png"
-            st.image(icon_url, width=80)
-        with col2:
-            st.write(f"🌡️ **Temperature:** {weather['temperature']}°C")
-            st.write(f"🌤️ **Condition:** {weather['weather']}")
-        st.image(f"https://source.unsplash.com/800x400/?{city}", caption=city, use_column_width=True)
-        st.write("---")
-
-# Display Map
-st.subheader("📍 Seven Sisters Map")
-fig, ax = plt.subplots()
-ax.scatter([lon for _, lon in cities.values()], [lat for lat, _ in cities.values()], c='red', label='Cities')
-ax.set_xlabel("Longitude")
-ax.set_ylabel("Latitude")
-ax.set_title("Seven Sisters Location Map")
-ax.legend()
-buffer = BytesIO()
-plt.savefig(buffer, format="png")
-st.image(buffer, caption="Seven Sisters Map", use_column_width=True)
+        st.subheader(f"🌤️ Weather in {state_name}")
+        st.write(f"**Temperature:** {weather['Temperature']}°C")
+        st.write(f"**Condition:** {weather['Condition'].capitalize()}")
+        st.write(f"**Humidity:** {weather['Humidity']}%")
+        st.write(f"**Wind Speed:** {weather['Wind Speed']} m/s")
+    else:
+        st.error("⚠️ Unable to display weather data.")
