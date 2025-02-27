@@ -1,56 +1,43 @@
 import streamlit as st
 import requests
-import os
+import datetime
 
-# OpenWeather API Key (use environment variable or Streamlit secrets)
-API_KEY = os.getenv("f8cb952227a9226d7088520604acec5a") 
-
-def get_lat_lon(state_name):
-    """Fetch latitude and longitude of a state using OpenWeather Geocoding API."""
-    geo_url = f"http://api.openweathermap.org/geo/1.0/direct?q={state_name},IN&limit=1&appid={API_KEY}"
-    response = requests.get(geo_url)
-    
-    if response.status_code == 200 and response.json():
-        data = response.json()[0]
-        return data["lat"], data["lon"]
-    else:
-        st.error("⚠️ Could not retrieve coordinates. Check the state name.")
-        return None, None
-
-def get_weather(state_name):
-    """Fetch weather data based on state name."""
-    lat, lon = get_lat_lon(state_name)
-    if lat is None or lon is None:
-        return None
-
-    weather_url = f"http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&units=metric"
-    response = requests.get(weather_url)
-    
+def get_weather(city):
+    API_KEY = "f8cb952227a9226d7088520604acec5a"  # Replace with your OpenWeather API Key
+    url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={API_KEY}&units=metric"
+    response = requests.get(url)
     if response.status_code == 200:
-        data = response.json()
-        return {
-            "Temperature": data["main"]["temp"],
-            "Condition": data["weather"][0]["description"],
-            "Humidity": data["main"]["humidity"],
-            "Wind Speed": data["wind"]["speed"]
-        }
+        return response.json()
+    return None
+
+def suggest_activities(weather):
+    if "rain" in weather.lower():
+        return ["Visit a local museum", "Explore a cultural center", "Try traditional cuisine at a restaurant"]
     else:
-        st.error("❌ Failed to retrieve weather data.")
-        return None
+        return ["Go trekking in scenic trails", "Visit a famous temple or monastery", "Explore local markets"]
 
-# Streamlit UI
-st.title("Seven Sisters Itinerary Planner 🌍")
+st.title("Seven Sisters Travel Itinerary Generator")
 
-state_name = st.selectbox("Select a State", ["Assam", "Meghalaya", "Tripura", "Mizoram", "Manipur", "Nagaland", "Arunachal Pradesh"])
+states = ["Arunachal Pradesh", "Assam", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Tripura"]
+selected_state = st.selectbox("Select a state", states)
+city = st.text_input("Enter a city")
+date = st.date_input("Select your travel date", datetime.date.today())
 
-if state_name:
-    weather = get_weather(state_name)
-    
-    if weather:
-        st.subheader(f"🌤️ Weather in {state_name}")
-        st.write(f"**Temperature:** {weather['Temperature']}°C")
-        st.write(f"**Condition:** {weather['Condition'].capitalize()}")
-        st.write(f"**Humidity:** {weather['Humidity']}%")
-        st.write(f"**Wind Speed:** {weather['Wind Speed']} m/s")
+if st.button("Generate Itinerary"):
+    if city:
+        weather_data = get_weather(city)
+        if weather_data:
+            weather_desc = weather_data['weather'][0]['description']
+            temp = weather_data['main']['temp']
+            st.write(f"### Weather in {city} on {date}:")
+            st.write(f"Condition: {weather_desc.capitalize()}")
+            st.write(f"Temperature: {temp}°C")
+            
+            activities = suggest_activities(weather_desc)
+            st.write("### Recommended Activities:")
+            for activity in activities:
+                st.write(f"- {activity}")
+        else:
+            st.error("Could not fetch weather data. Please check the city name.")
     else:
-        st.error("⚠️ Unable to display weather data.")
+        st.warning("Please enter a city name.")
